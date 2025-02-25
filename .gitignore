@@ -2,3 +2,5 @@
 dataset
 */__pycache__/
 checkpoints
+logger
+results/*

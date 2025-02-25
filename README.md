@@ -8,7 +8,7 @@ We provide a comprehensive AI for time series forecasting task (AI4TS-Forecaster
 ## Get Started
 
 1. Install Python 3.6, PyTorch 1.9.0.
-2. Download data. You can obtain all the six benchmarks from [Google Drive](https://drive.google.com/drive/folders/1vYFgM5Po3RekCIg-74ZTp_LhgeS_mbVW?usp=sharing). **All the datasets can be used easily.**
+2. Download data. You can obtain all from [Google Drive](https://drive.google.com/drive/folders/1vYFgM5Po3RekCIg-74ZTp_LhgeS_mbVW?usp=sharing). **All the datasets can be used easily.**
 3. Train the model. We provide the experiment scripts of all benchmarks under the folder `./scripts`. You can reproduce the experiment results by:
 
 ## Models 
@@ -40,8 +40,6 @@ Models can be used for time series forecasting tasks include: Statistical, Machi
 
 ```
 pip install -r requirements.txt
-
-pip install "u8darts[notorch]"
 ```
 
 2. Prepare Data. You can obtain the datasets from [[Google Drive]](https://drive.google.com/drive/folders/1vYFgM5Po3RekCIg-74ZTp_LhgeS_mbVW?usp=sharing). Put the datasets under the folder `./dataset/`.
@@ -50,7 +48,7 @@ pip install "u8darts[notorch]"
 - DL models:
 ```
 # long-term forecasting
-bash ./scripts/long_term_forecast/ETT_script/Autoformer_ETTh1.sh
+bash ./scripts_DL/long_term_forecast/ETT_script/Autoformer_ETTh1.sh
 ```
 
 - ML models:
@@ -58,7 +56,7 @@ bash ./scripts/long_term_forecast/ETT_script/Autoformer_ETTh1.sh
 # long-term forecasting
 bash ./scripts_ML/long_term_forecast/ETT_script/RegressionModel_ETTh1.sh
 ```
-4. Develop your own model.
+4. Develop your own DL model.
 
 - Add the model file to the folder `./models`.
 - Include the newly added model in the `Exp_Basic.model_dict` of  `./exp/exp_basic.py`.
