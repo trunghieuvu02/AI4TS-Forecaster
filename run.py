@@ -11,7 +11,7 @@ import numpy as np
 
 logging.basicConfig(format='%(asctime)s | %(levelname)s : %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
-logger.info("TimeSeries-AdvancedMethods-Hub")
+logger.info("AI4TS - Forecaster")
 
 if __name__ == '__main__':
     fix_seed = 2024
