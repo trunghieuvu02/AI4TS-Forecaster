@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from parameters import index_columns
 from tqdm import tqdm
+from scipy.stats import entropy
+import pycatch22
 from statsmodels.tsa.stattools import adfuller
 from scipy.signal import argrelextrema
 from statsmodels.tsa.stl._stl import STL
@@ -24,25 +26,26 @@ class TimeSeriesAnalyzer:
             - Stationarity using the ADF test.
             - Candidate periods via FFT analysis.
             - For each candidate period, seasonal and trend strengths via STL decomposition.
+            - Shifting value
         """
         ts_characteristics_df = pd.DataFrame(columns=self.index_columns)
         n_samples = data.shape[0]
         # copy_df = df.copy()
         # series_length = [df.shape[0]]
-        #
-        for col in data.columns:
+        for col in tqdm(data.columns, desc="Analyzing columns"):
             series = pd.to_numeric(data[col], errors='coerce')
 
             # 1. Stationarity: Compute the ADF test results
             adf_p_value, is_stationary = self.compute_stationarity(series)
             print("adf_p_value: ", adf_p_value)
+            print("col: ", col)
             # 2. Trend and Seasonality: Use FFT to get candidate periods
             candidate_periods, amplitudes = self.compute_fft_transform(series, min_amplitude=0)
             filtered_periods = self.filter_candidate_periods(candidate_periods, amplitudes)
 
             # 3. For each candidate period, compute seasonal and trend strengths
             seasonal_results = []
-            for period in filtered_periods:
+            for period in tqdm(filtered_periods):
                 strengths = self.compute_strengths_for_period(series, period)
                 if strengths is not None:
                     seasonal_results.append(strengths)
@@ -70,18 +73,105 @@ class TimeSeriesAnalyzer:
                     result["trend_strength"],
                 ])
 
+            # 4. Calculate the shifting value
+            shifting_value, _ = self.compute_shifting_value(series, m=5)
+
+            # 5) Compute the Catch22 transition value
+            transition_value = self.compute_transition_value(series)
+
+            # 5. Forecastability
+            #    Use forecastabilty_moving and take the average (or any summary you prefer).
+            fore_values = self.forecastabilty_moving(series, window=20, jump=10)
+            if isinstance(fore_values, np.ndarray):
+                forecastability_value = fore_values.mean() if len(fore_values) > 0 else 0.0
+            else:
+                # If the function returns a single float for short series
+                forecastability_value = fore_values
+
             # Assemble final feature vector for this column:
             # [file_name, series_length, seasonal features, seasonal_flag, trend_flag, adf_p_value, is_stationary]
             feature_vector = (
-                    [file_name, n_samples] +
+                    [file_name, col, n_samples] +
                     seasonal_features +
-                    [seasonal_flag, trend_flag, adf_p_value, is_stationary]
+                    [seasonal_flag, trend_flag, adf_p_value, is_stationary, shifting_value, transition_value, forecastability_value]
             )
 
             print("feature_vector: ", feature_vector)
             ts_characteristics_df.loc[len(ts_characteristics_df)] = feature_vector
 
         return ts_characteristics_df
+
+    @staticmethod
+    def forecastabilty(ts: np.ndarray) -> float:
+        """
+        Forecastability Measure:
+          fore_ts = 1 - (entropy of normalized FFT) / log(N)
+          Where N is the length of the time series.
+
+        If result is NaN, returns 0.0
+        """
+        # If not enough data, return 0
+        if len(ts) < 2:
+            return 0.0
+
+        # Min-max scale
+        ts = (ts - ts.min()) / (ts.max() - ts.min())
+        # Real part of rFFT
+        fourier_ts = np.fft.rfft(ts).real
+        # Min-max scale the fourier transform
+        fourier_ts = (fourier_ts - fourier_ts.min()) / (fourier_ts.max() - fourier_ts.min())
+        # Ensure it sums to 1.0
+        fourier_ts /= fourier_ts.sum()
+
+        # Entropy of fourier distribution
+        entropy_ts = entropy(fourier_ts)
+
+        # forecastability
+        fore_ts = 1 - entropy_ts / np.log(len(ts))
+        if np.isnan(fore_ts):
+            return 0.0
+        return fore_ts
+
+    def forecastabilty_moving(self, ts: pd.Series, window=20, jump=10):
+        """
+        Calculates forecastability for sliding windows of length `window`,
+        stepping by `jump`.
+        """
+        ts = ts.dropna().values  # ensure array, remove NaN
+        if len(ts) <= 25:
+            return self.forecastabilty(ts)
+
+        fore_list = []
+        # i goes from window to len(ts) in steps of jump
+        for i in range(window, len(ts), jump):
+            slice_ = ts[i - window: i]
+            value = self.forecastabilty(slice_)
+            fore_list.append(value)
+
+        fore_array = np.array(fore_list)
+        # Drop NaNs
+        fore_array = fore_array[~np.isnan(fore_array)]
+        return fore_array
+
+    @staticmethod
+    def compute_transition_value(series: pd.Series) -> float:
+        """
+        Compute the SB_TransitionMatrix_3ac_sumdiagcov feature from pycatch22.
+        Returns 0.0 if the feature is not found or the series is non-numeric/empty.
+        """
+        # Drop NaNs to avoid errors in pycatch22
+        clean_series = series.dropna()
+        if clean_series.empty:
+            return 0.0
+
+        meta_catch22 = pycatch22.catch22_all(clean_series)
+        feature_name = "SB_TransitionMatrix_3ac_sumdiagcov"
+
+        if feature_name in meta_catch22["names"]:
+            idx = meta_catch22["names"].index(feature_name)
+            return meta_catch22["values"][idx]
+        else:
+            return 0.0
 
     def compute_strengths_for_period(self, series: pd.Series, period: int) -> dict or None:
         """
@@ -149,6 +239,7 @@ class TimeSeriesAnalyzer:
         sorted_indices = np.argsort(amplitudes)[::-1]
         candidate_periods_sorted = [round(candidate_periods[idx]) for idx in sorted_indices]
         filtered_periods = []
+        print("filter candidate periods...")
         for period in candidate_periods_sorted:
             adjusted = self.adjust_period(period)
             if adjusted not in filtered_periods and adjusted >= 4:
@@ -240,18 +331,59 @@ class TimeSeriesAnalyzer:
             period_value = 43200
         return period_value
 
+    @staticmethod
+    def compute_shifting_value(time_series, m=5):
+        """
+        Calculate the shifting value of a time series (array-like) based on the algorithm.
+        """
+        # Convert to np.array in case it's a pandas Series
+        time_series = np.array(time_series.dropna())  # ensure no NaNs
+
+        # Step 1: Normalize the time series (z-score)
+        Z = (time_series - np.mean(time_series)) / np.std(time_series)
+
+        # Step 2: Define thresholds
+        Z_min, Z_max = np.min(Z), np.max(Z)
+        thresholds = [Z_min + (i - 1) * (Z_max - Z_min) / m for i in range(1, m + 1)]
+
+        # Step 3-4: Identify indices above thresholds and calculate median indices
+        median_indices = []
+        for threshold in thresholds:
+            indices_above = np.where(Z > threshold)[0]
+            if len(indices_above) > 0:
+                median_indices.append(np.median(indices_above))
+            else:
+                # Handle case with no values above threshold
+                median_indices.append(0)
+
+        # Step 5: Normalize the median indices using Min-Max Normalization
+        median_indices = np.array(median_indices)
+        if np.max(median_indices) != np.min(median_indices):
+            median_indices_normalized = (
+                    (median_indices - np.min(median_indices))
+                    / (np.max(median_indices) - np.min(median_indices))
+            )
+        else:
+            median_indices_normalized = np.zeros_like(median_indices)
+
+        # Step 6: Compute final shifting value
+        shifting_value = np.median(median_indices_normalized)
+
+        return shifting_value, median_indices_normalized
+
 
 # =================== Test Case ================
 if __name__ == "__main__":
-    file_path = '/home/ktp_user/PhD-Code/TimeSeries-AdvancedMethods-Hub/dataset/ETT-small/ETTh2.csv'
+    file_path = '/home/ktp_user/PhD-Code/TimeSeries-AdvancedMethods-Hub/dataset/exchange_rate/exchange_rate.csv'
     df = pd.read_csv(file_path)
-    file_name = "ETTh2"
+    file_name = "exchange_rate"
 
     df["date"] = pd.to_datetime(df["date"])
     df.set_index("date", inplace=True)
-
+    # print("df: ", df)
     ts_analyzer = TimeSeriesAnalyzer()
     ts_characteristics_df = ts_analyzer.feature_extract(df, file_name)
     print(ts_characteristics_df)
+    ts_characteristics_df.to_csv("mts_characteristics.csv", index=False)
 
 
