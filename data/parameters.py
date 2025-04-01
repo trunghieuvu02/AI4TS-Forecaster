@@ -1,6 +1,7 @@
 # parameters.py
 index_columns = [
     "file_name",
+    "column_name",
     "length",
     "period_value1",
     "seasonal_strength1",
@@ -15,4 +16,7 @@ index_columns = [
     "if_trend",
     "ADF:p-value",
     "stability",
+    "shifting",
+    "transition",
+    "forecastability"
 ]

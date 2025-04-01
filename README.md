@@ -11,6 +11,29 @@ We provide a comprehensive AI for time series forecasting task (AI4TS-Forecaster
 2. Download data. You can obtain all from [Google Drive](https://drive.google.com/drive/folders/1vYFgM5Po3RekCIg-74ZTp_LhgeS_mbVW?usp=sharing). **All the datasets can be used easily.**
 3. Train the model. We provide the experiment scripts of all benchmarks under the folder `./scripts`. You can reproduce the experiment results by:
 
+## MTS-Characteristics Extractions
+
+We provide the MTS-Characteristics Extractions for time series forecasting tasks. The MTS-Characteristics Extractions include the following characteristics:
+
+✅ Augmented Dickey-Fuller (**ADF**) test for stationarity  
+✅ **Fourier Transform** to identify candidate periods  
+✅ **STL Decomposition** for seasonal & trend strength  
+✅ **Catch22 features** like transition matrix entropy
+✅ **Shifting value** based on threshold activity  
+✅ **Forecastability** using entropy of FFT  
+
+### Usage
+```
+pip install numpy pandas scipy statsmodels tqdm
+pip install pycatch22
+```
+
+```
+cd data
+python data_analysis.py
+```
+
+
 ## Models 
 
 Models can be used for time series forecasting tasks include: Statistical, Machine Learning, and Deep Learning approaches.
@@ -34,7 +57,7 @@ Models can be used for time series forecasting tasks include: Statistical, Machi
 - [X] **TimeMixer** - TimeMixer: Decomposable Multiscale Mixing for Time Series Forecasting [[ICLR 2024]](https://openreview.net/pdf?id=7oLshfEIC2) [[Code]](https://github.com/thuml/Time-Series-Library/blob/main/models/TimeMixer.py).
 - [X] **FAT** - FAT: Fusion-Attention Transformer for Remaining Useful Life Prediction [[ICPR 2024]](https://link.springer.com/chapter/10.1007/978-3-031-78192-6_19)
 
-## Usage
+### Usage
 
 1. Install the requirements.txt:
 
