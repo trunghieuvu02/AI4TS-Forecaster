@@ -16,10 +16,10 @@ We provide a comprehensive AI for time series forecasting task (AI4TS-Forecaster
 We provide the MTS-Characteristics Extractions for time series forecasting tasks. The MTS-Characteristics Extractions include the following characteristics:
 
 ✅ Augmented Dickey-Fuller (**ADF**) test for stationarity  
-✅ **Fourier Transform** to identify candidate periods  
-✅ **STL Decomposition** for seasonal & trend strength  
-✅ **Catch22 features** like transition matrix entropy
-✅ **Shifting value** based on threshold activity  
+✅ **Fourier Transform** to identify candidate periods  \
+✅ **STL Decomposition** for seasonal & trend strength  \
+✅ **Catch22 features** like transition matrix entropy \
+✅ **Shifting value** based on threshold activity  \
 ✅ **Forecastability** using entropy of FFT  
 
 ### Usage
